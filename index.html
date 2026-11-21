@@ -49,9 +49,10 @@
 <script>
   // تهيئة OneSignal — الـ App ID مدمج هنا من إعداداتك المحفوظة.
   // ممنوع وضع الـ API Key في هذه الصفحة أبداً: مكانه الخادم فقط.
+  // مسار ملف الإشعارات يُحسب تلقائياً من عنوان الصفحة نفسه (مثل
+  // egx-tracker/OneSignalSDKWorker.js) — لا تعدّل أي سطر هنا يدوياً.
   window.OneSignalDeferred = window.OneSignalDeferred || [];
-  var OS_APP_ID = '94eb4cb2-531a-4c72-aac2-770877027fd1';serviceWorkerPath: "egx-tracker/OneSignalSDKWorker.js",
-serviceWorkerParam: { scope: "/egx-tracker/" },
+  var OS_APP_ID = '94eb4cb2-531a-4c72-aac2-770877027fd1';
   var osApi = null;
   function osSetStatus(t) {
     var el = document.getElementById('os-status');
@@ -76,15 +77,17 @@ serviceWorkerParam: { scope: "/egx-tracker/" },
     OneSignalDeferred.push(async function (OneSignal) {
       osApi = OneSignal;
       try {
+        var pageDir = window.location.pathname.replace(/[^/]*$/, '');
+        if (!pageDir) pageDir = '/';
         await OneSignal.init({
           appId: OS_APP_ID,
-          serviceWorkerPath: 'OneSignalSDKWorker.js',
-          serviceWorkerParam: { scope: './' }
+          serviceWorkerPath: pageDir.replace(/^\//, '') + 'OneSignalSDKWorker.js',
+          serviceWorkerParam: { scope: pageDir }
         });
         OneSignal.User.PushSubscription.addEventListener('change', osRefresh);
         osRefresh();
       } catch (e) {
-        osSetStatus('تعذرت تهيئة OneSignal: ' + (e && e.message ? e.message : String(e)) + ' — تأكد أن Site URL في إعدادات تطبيق OneSignal يطابق عنوان هذه الصفحة تماماً.');
+        osSetStatus('تعذرت تهيئة OneSignal: ' + (e && e.message ? e.message : String(e)) + ' — تأكد أن ملف OneSignalSDKWorker.js موجود في نفس مجلد هذه الصفحة في المستودع، وأن منصة Web مفعلة في OneSignal.');
       }
     });
   }
