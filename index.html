@@ -50,7 +50,8 @@
   // تهيئة OneSignal — الـ App ID مدمج هنا من إعداداتك المحفوظة.
   // ممنوع وضع الـ API Key في هذه الصفحة أبداً: مكانه الخادم فقط.
   window.OneSignalDeferred = window.OneSignalDeferred || [];
-  var OS_APP_ID = '94eb4cb2-531a-4c72-aac2-770877027fd1';
+  var OS_APP_ID = '94eb4cb2-531a-4c72-aac2-770877027fd1';serviceWorkerPath: "egx-tracker/OneSignalSDKWorker.js",
+serviceWorkerParam: { scope: "/egx-tracker/" },
   var osApi = null;
   function osSetStatus(t) {
     var el = document.getElementById('os-status');
