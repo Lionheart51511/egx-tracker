@@ -49,8 +49,8 @@
 <script>
   // تهيئة OneSignal — الـ App ID مدمج هنا من إعداداتك المحفوظة.
   // ممنوع وضع الـ API Key في هذه الصفحة أبداً: مكانه الخادم فقط.
-  // مسار ملف الإشعارات يُحسب تلقائياً من عنوان الصفحة نفسه (مثل
-  // egx-tracker/OneSignalSDKWorker.js) — لا تعدّل أي سطر هنا يدوياً.
+  // عامل الإشعارات هو ملف sw.js نفسه (مدمج فيه كود OneSignal في أوله)،
+  // ومساره يُحسب تلقائياً من عنوان الصفحة نفسه — لا تعدّل أي سطر هنا.
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   var OS_APP_ID = '94eb4cb2-531a-4c72-aac2-770877027fd1';
   var osApi = null;
@@ -63,9 +63,16 @@
     var sub = osApi.User.PushSubscription;
     var bSub = document.getElementById('os-sub');
     var bUn = document.getElementById('os-unsub');
-    if (sub && sub.optedIn) {
-      osSetStatus('هذا الجهاز مشترك في إشعارات OneSignal — ستصلك تنبيهات التحديث حتى والصفحة مغلقة.');
+    var subId = sub && typeof sub.id === 'string' && sub.id ? sub.id : null;
+    if (sub && sub.optedIn && subId) {
+      // اشتراك مكتمل فعلياً: عنده رقم اشتراك عند خادم OneSignal.
+      osSetStatus('هذا الجهاز مشترك في إشعارات OneSignal — ستصلك تنبيهات التحديث حتى والصفحة مغلقة. رقم الاشتراك: ' + subId);
       if (bSub) bSub.disabled = true;
+      if (bUn) bUn.disabled = false;
+    } else if (sub && sub.optedIn) {
+      // موافقة محلية بلا رقم اشتراك = الاشتراك لم يصل الخادم بعد.
+      osSetStatus('الاشتراك لم يكتمل عند خادم OneSignal بعد (لا يوجد رقم اشتراك) — انتظر ثواني وحدّث الصفحة، وإن بقيت الرسالة امسح بيانات الموقع واشترك من جديد.');
+      if (bSub) bSub.disabled = false;
       if (bUn) bUn.disabled = false;
     } else {
       osSetStatus('هذا الجهاز غير مشترك بعد — اضغط «اشترك من هذا الجهاز» ووافق على إذن الإشعارات.');
@@ -81,13 +88,13 @@
         if (!pageDir) pageDir = '/';
         await OneSignal.init({
           appId: OS_APP_ID,
-          serviceWorkerPath: pageDir.replace(/^\//, '') + 'OneSignalSDKWorker.js',
+          serviceWorkerPath: pageDir.replace(/^\//, '') + 'sw.js',
           serviceWorkerParam: { scope: pageDir }
         });
         OneSignal.User.PushSubscription.addEventListener('change', osRefresh);
         osRefresh();
       } catch (e) {
-        osSetStatus('تعذرت تهيئة OneSignal: ' + (e && e.message ? e.message : String(e)) + ' — تأكد أن ملف OneSignalSDKWorker.js موجود في نفس مجلد هذه الصفحة في المستودع، وأن منصة Web مفعلة في OneSignal.');
+        osSetStatus('تعذرت تهيئة OneSignal: ' + (e && e.message ? e.message : String(e)) + ' — تأكد أن ملف sw.js الجديد (المدمج فيه OneSignal) موجود في نفس مجلد هذه الصفحة في المستودع، وأن منصة Web مفعلة في OneSignal.');
       }
     });
   }
@@ -99,7 +106,12 @@
         return undefined;
       }
       return osApi.User.PushSubscription.optIn();
-    }).then(function () { osRefresh(); }).catch(function (e) {
+    }).then(function () {
+      osRefresh();
+      // رقم الاشتراك قد يصل من الخادم بعد لحظات من الموافقة المحلية.
+      setTimeout(osRefresh, 2000);
+      setTimeout(osRefresh, 5000);
+    }).catch(function (e) {
       osSetStatus('تعذر الاشتراك: ' + (e && e.message ? e.message : String(e)));
     });
   }
