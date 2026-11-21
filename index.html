@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>متابع فئات المستثمرين في البورصة المصرية</title>
+<meta name="description" content="متابعة فئات المستثمرين في البورصة المصرية كل ربع ساعة: جداول الشراء والبيع والتراكمي وتحوّلات السياسة والرسم البياني">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b6e4f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#f7f6f1; --surface:#fffef9; --text:#17211c; --dim:#5c6f66; --border:#ddd8c9; --accent:#0b6e4f; --accent-ink:#ffffff; --buy:#15803d; --sell:#b91c1c; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#101511; --surface:#1a201b; --text:#ecefe9; --dim:#9db0a4; --border:#2e3a30; --accent:#34c98e; --accent-ink:#0c1a13; --buy:#4ade80; --sell:#f87171; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', sans-serif; background:var(--bg); color:var(--text); }
+  main { max-width:42rem; margin:0 auto; padding:1rem 1rem 2.5rem; }
+  h1 { font-size:1.25rem; margin:.25rem 0 .25rem; }
+  h2 { font-size:1.05rem; margin:1.6rem 0 .25rem; }
+  h3 { font-size:1rem; margin:0; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1rem; margin-top:.75rem; }
+  .tblwrap { overflow:hidden; border:1px solid var(--border); border-radius:10px; margin-top:.6rem; background:var(--surface); }
+  table { width:100%; border-collapse:collapse; font-size:.875rem; }
+  th, td { padding:.5rem .6rem; text-align:right; }
+  thead tr { background:var(--bg); color:var(--dim); }
+  thead th { font-weight:500; }
+  tbody tr { border-top:1px solid var(--border); }
+  tbody th { font-weight:500; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .buy { color:var(--buy); } .sell { color:var(--sell); } .dim { color:var(--dim); }
+  .strong { font-weight:600; }
+  button { min-height:2rem; border-radius:8px; border:1px solid var(--accent); background:var(--accent); color:var(--accent-ink); font:inherit; font-weight:600; padding:.45rem 1rem; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--accent); }
+  button:disabled { opacity:.45; cursor:default; }
+  input { font:inherit; min-height:2rem; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); padding:.45rem .6rem; width:100%; }
+  label { font-size:.85rem; font-weight:700; display:block; margin-bottom:.35rem; }
+  .row { display:flex; gap:.6rem; flex-wrap:wrap; align-items:end; }
+  .grow { flex:1 1 12rem; }
+  .small { font-size:.8rem; color:var(--dim); line-height:1.8; }
+  .note { font-size:.9rem; line-height:1.9; }
+  .legend { display:flex; flex-wrap:wrap; gap:.35rem 1rem; margin-top:.6rem; font-size:.8rem; }
+  .legend i { display:inline-block; width:.65rem; height:.65rem; border-radius:50%; margin-left:.3rem; }
+  ul.flips { margin:0; padding:0; list-style:none; }
+  ul.flips li { font-size:.9rem; line-height:1.9; }
+</style>
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+  // تهيئة OneSignal — الـ App ID مدمج هنا من إعداداتك المحفوظة.
+  // ممنوع وضع الـ API Key في هذه الصفحة أبداً: مكانه الخادم فقط.
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  var OS_APP_ID = '94eb4cb2-531a-4c72-aac2-770877027fd1';
+  var osApi = null;
+  function osSetStatus(t) {
+    var el = document.getElementById('os-status');
+    if (el) el.textContent = t;
+  }
+  function osRefresh() {
+    if (!osApi) return;
+    var sub = osApi.User.PushSubscription;
+    var bSub = document.getElementById('os-sub');
+    var bUn = document.getElementById('os-unsub');
+    if (sub && sub.optedIn) {
+      osSetStatus('هذا الجهاز مشترك في إشعارات OneSignal — ستصلك تنبيهات التحديث حتى والصفحة مغلقة.');
+      if (bSub) bSub.disabled = true;
+      if (bUn) bUn.disabled = false;
+    } else {
+      osSetStatus('هذا الجهاز غير مشترك بعد — اضغط «اشترك من هذا الجهاز» ووافق على إذن الإشعارات.');
+      if (bSub) bSub.disabled = false;
+      if (bUn) bUn.disabled = true;
+    }
+  }
+  if (OS_APP_ID.length >= 30) {
+    OneSignalDeferred.push(async function (OneSignal) {
+      osApi = OneSignal;
+      try {
+        await OneSignal.init({
+          appId: OS_APP_ID,
+          serviceWorkerPath: 'OneSignalSDKWorker.js',
+          serviceWorkerParam: { scope: './' }
+        });
+        OneSignal.User.PushSubscription.addEventListener('change', osRefresh);
+        osRefresh();
+      } catch (e) {
+        osSetStatus('تعذرت تهيئة OneSignal: ' + (e && e.message ? e.message : String(e)) + ' — تأكد أن Site URL في إعدادات تطبيق OneSignal يطابق عنوان هذه الصفحة تماماً.');
+      }
+    });
+  }
+  function osSubscribe() {
+    if (!osApi) { osSetStatus('ما زالت مكتبة OneSignal تُحمَّل — انتظر ثواني ثم حاول مرة أخرى.'); return; }
+    osApi.Notifications.requestPermission().then(function (granted) {
+      if (!granted) {
+        osSetStatus('لم يتم منح إذن الإشعارات — فعّله من إعدادات المتصفح لهذا الموقع ثم حاول مرة أخرى.');
+        return undefined;
+      }
+      return osApi.User.PushSubscription.optIn();
+    }).then(function () { osRefresh(); }).catch(function (e) {
+      osSetStatus('تعذر الاشتراك: ' + (e && e.message ? e.message : String(e)));
+    });
+  }
+  function osUnsubscribe() {
+    if (!osApi) return;
+    osApi.User.PushSubscription.optOut().then(function () { osRefresh(); }).catch(function () { osRefresh(); });
+  }
+</script>
+</head>
+<body>
+<main>
+  <h1>متابع فئات المستثمرين في البورصة المصرية</h1>
+  <p class="small" id="today-line"></p>
+
+  <section class="card">
+    <label for="sheet-url">رابط Google Sheet (المنشور على الويب أو المشترك للقراءة)</label>
+    <div class="row">
+      <input id="sheet-url" class="grow" type="url" dir="ltr" placeholder="https://docs.google.com/spreadsheets/d/…">
+      <button type="button" id="save-url">حفظ الرابط</button>
+    </div>
+    <p class="small">يُحفظ الرابط في هذا المتصفح فقط، وتقرأه الصفحة مباشرة من الشيت عند كل فتح أو تحديث — نفس الشيت الذي يقرأه التطبيق الأصلي.</p>
+    <div class="row" style="margin-top:.6rem">
+      <div class="grow">
+        <label for="date-picker">اختر اليوم</label>
+        <input id="date-picker" type="date">
+      </div>
+      <button type="button" id="refresh" class="ghost">تحديث الآن</button>
+    </div>
+    <p class="small" id="status" role="status"></p>
+  </section>
+
+  <section class="card">
+    <h2 style="margin-top:0">إشعارات OneSignal</h2>
+    <p class="small" id="os-status">جارٍ تجهيز OneSignal…</p>
+    <div class="row">
+      <button type="button" id="os-sub" onclick="osSubscribe()" disabled>اشترك من هذا الجهاز</button>
+      <button type="button" id="os-unsub" class="ghost" onclick="osUnsubscribe()" disabled>إلغاء الاشتراك</button>
+    </div>
+  </section>
+
+  <div id="content"></div>
+</main>
+<script>
+(function () {
+  'use strict';
+
+  // الفئات الست بالترتيب نفسه في الشيت والتطبيق: شراء ثم بيع لكل فئة
+  var CATS = [
+    { label: 'مصريون — أفراد', buy: 0, sell: 1 },
+    { label: 'مصريون — مؤسسات', buy: 2, sell: 3 },
+    { label: 'عرب — أفراد', buy: 4, sell: 5 },
+    { label: 'عرب — مؤسسات', buy: 6, sell: 7 },
+    { label: 'أجانب — أفراد', buy: 8, sell: 9 },
+    { label: 'أجانب — مؤسسات', buy: 10, sell: 11 }
+  ];
+  var SERIES = ['#0b6e4f', '#1d4ed8', '#d97706', '#7c3aed', '#db2777', '#0e7490'];
+  var SESSION_START = '10:00';
+  var SESSION_END = '14:30';
+  var LS_URL = 'egxTrackerSheetUrl';
+  var LS_CACHE = 'egxTrackerRowsCache';
+
+  var millionFmt = new Intl.NumberFormat('ar-EG-u-nu-latn', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  var pctFmt = new Intl.NumberFormat('ar-EG-u-nu-latn', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  var numFmt = new Intl.NumberFormat('ar-EG-u-nu-latn');
+
+  function fmtM(n) { return millionFmt.format(n / 1000000); }
+  function fmtPct(n) { return pctFmt.format(n) + '%'; }
+  function pad2(n) { return ('0' + n).slice(-2); }
+  function fmtTime(hhmm) {
+    var p = String(hhmm).split(':');
+    var h = parseInt(p[0], 10) || 0;
+    var m = p[1] || '00';
+    var suf = h < 12 ? 'ص' : 'م';
+    var h12 = h % 12 === 0 ? 12 : h % 12;
+    return numFmt.format(h12) + ':' + m + ' ' + suf;
+  }
+  function fmtDateArabic(ymd) {
+    var d = new Date(ymd + 'T12:00:00');
+    if (isNaN(d.getTime())) return ymd;
+    return new Intl.DateTimeFormat('ar-EG-u-nu-latn', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(d);
+  }
+  function cairoNow() {
+    var parts = {};
+    var fmt = new Intl.DateTimeFormat('en-US', { timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+    fmt.formatToParts(new Date()).forEach(function (p) { parts[p.type] = p.value; });
+    var hour = parts.hour === '24' ? '00' : (parts.hour || '00');
+    return { date: parts.year + '-' + parts.month + '-' + parts.day, minutes: (parseInt(hour, 10) || 0) * 60 + (parseInt(parts.minute, 10) || 0) };
+  }
+  function toMin(t) { var p = String(t).split(':'); return (parseInt(p[0], 10) || 0) * 60 + (parseInt(p[1], 10) || 0); }
+  function toHHMM(mins) { return pad2(Math.floor(mins / 60)) + ':' + pad2(mins % 60); }
+
+  // ---- قراءة الشيت: تحويل الرابط إلى CSV ثم تحليل الصفوف (نفس منطق التطبيق) ----
+  function toCsvUrl(url) {
+    if (/docs\.google\.com\/spreadsheets\/d\/e\/[a-zA-Z0-9-_]+/.test(url)) {
+      if (/[?&]output=csv(?:&|$)/.test(url)) return url;
+      if (/[?&]output=/.test(url)) return url.replace(/([?&]output=)[^&]*/, '$1csv');
+      return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'output=csv';
+    }
+    var m = url.match(/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    if (m) {
+      var gid = (url.match(/[?&#]gid=(\d+)/) || [])[1];
+      return 'https://docs.google.com/spreadsheets/d/' + m[1] + '/gviz/tq?tqx=out:csv' + (gid ? '&gid=' + gid : '');
+    }
+    return url;
+  }
+  function parseCsv(text) {
+    var rows = []; var row = []; var cell = ''; var inQuotes = false;
+    var src = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    for (var i = 0; i < src.length; i++) {
+      var ch = src.charAt(i);
+      if (inQuotes) {
+        if (ch === '"') {
+          if (src.charAt(i + 1) === '"') { cell += '"'; i++; } else { inQuotes = false; }
+        } else { cell += ch; }
+      } else if (ch === '"') { inQuotes = true; }
+      else if (ch === ',') { row.push(cell); cell = ''; }
+      else if (ch === '\n') { row.push(cell); cell = ''; rows.push(row); row = []; }
+      else { cell += ch; }
+    }
+    if (cell.length > 0 || row.length > 0) { row.push(cell); rows.push(row); }
+    return rows.filter(function (r) { return r.some(function (c) { return c.trim().length > 0; }); });
+  }
+  function normHeader(raw) {
+    return String(raw).trim().toLowerCase()
+      .replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/ؤ/g, 'و')
+      .replace(/[_\s]+/g, '');
+  }
+  var CSV_KEYS = ['eg_ind_buy', 'eg_ind_sell', 'eg_inst_buy', 'eg_inst_sell', 'ar_ind_buy', 'ar_ind_sell', 'ar_inst_buy', 'ar_inst_sell', 'fo_ind_buy', 'fo_ind_sell', 'fo_inst_buy', 'fo_inst_sell'];
+  var AR_ALIASES = [
+    ['مصريون افراد شراء', 'مصري افراد شراء'], ['مصريون افراد بيع', 'مصري افراد بيع'],
+    ['مصريون مؤسسات شراء', 'مصري مؤسسات شراء'], ['مصريون مؤسسات بيع', 'مصري مؤسسات بيع'],
+    ['عرب افراد شراء'], ['عرب افراد بيع'], ['عرب مؤسسات شراء'], ['عرب مؤسسات بيع'],
+    ['اجانب افراد شراء'], ['اجانب افراد بيع'], ['اجانب مؤسسات شراء'], ['اجانب مؤسسات بيع']
+  ];
+  function normalizeDate(raw) {
+    var s = String(raw).trim();
+    var m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return m[1] + '-' + pad2(m[2]) + '-' + pad2(m[3]);
+    m = s.match(/^(\d{1,2})[/.](\d{1,2})[/.](\d{4})/);
+    if (m) {
+      var a = Number(m[1]); var b = Number(m[2]);
+      var day = a > 12 ? a : b > 12 ? b : a;
+      var month = a > 12 ? b : b > 12 ? a : b;
+      return m[3] + '-' + pad2(month) + '-' + pad2(day);
+    }
+    return null;
+  }
+  function normalizeTime(raw) {
+    var s = String(raw).trim().toLowerCase();
+    var m = s.match(/(\d{1,2}):(\d{2})/);
+    if (!m) return null;
+    var h = Number(m[1]);
+    var isPm = s.indexOf('pm') >= 0 || s.indexOf('مساء') >= 0;
+    var isAm = s.indexOf('am') >= 0 || s.indexOf('صباح') >= 0;
+    if (isPm && h < 12) h += 12;
+    if (isAm && h === 12) h = 0;
+    if (h > 23) return null;
+    return pad2(h) + ':' + m[2];
+  }
+  function parseNumber(raw) {
+    if (raw == null) return 0;
+    var n = parseFloat(String(raw).replace(/[%,\s]/g, '').replace('−', '-'));
+    return isFinite(n) ? n : 0;
+  }
+  function parseSheetRows(rows) {
+    if (!rows.length) return [];
+    var first = rows[0];
+    var normalized = first.map(normHeader);
+    var dateAliases = ['date', 'day'].map(normHeader).concat([normHeader('التاريخ'), normHeader('تاريخ')]);
+    var timeAliases = ['time', 'hour'].map(normHeader).concat([normHeader('الوقت'), normHeader('الساعه')]);
+    var dateCol = normalized.findIndex(function (h) { return dateAliases.indexOf(h) >= 0; });
+    var timeCol = normalized.findIndex(function (h) { return timeAliases.indexOf(h) >= 0; });
+    var valueCols = CSV_KEYS.map(function (key, i) {
+      var aliases = [normHeader(key)].concat(AR_ALIASES[i].map(normHeader));
+      var idx = normalized.findIndex(function (h) { return aliases.indexOf(h) >= 0; });
+      return idx >= 0 ? idx : null;
+    });
+    var hasHeader = dateCol >= 0 || timeCol >= 0 || valueCols.some(function (c) { return c != null; });
+    if (!hasHeader) {
+      dateCol = 0; timeCol = 1;
+      valueCols = CSV_KEYS.map(function (_, i) { return i + 2; });
+    } else {
+      if (dateCol < 0) dateCol = 0;
+      if (timeCol < 0) timeCol = 1;
+      valueCols = valueCols.map(function (c, i) { return c == null ? i + 2 : c; });
+    }
+    var dataRows = hasHeader ? rows.slice(1) : rows;
+    var out = [];
+    dataRows.forEach(function (r) {
+      var date = normalizeDate(r[dateCol] || '');
+      var time = normalizeTime(r[timeCol] || '');
+      if (!date || !time) return;
+      var values = valueCols.map(function (col) { return parseNumber(col != null ? r[col] : undefined); });
+      out.push({ date: date, time: time, values: values });
+    });
+    return out;
+  }
+
+  // ---- الحالة: الصفوف مجمعة بالتاريخ، وكل يوم مستقل تماماً ----
+  var BY_DATE = {};
+  var DATES = [];
+  function setRows(rows) {
+    var byKey = {};
+    rows.forEach(function (r) { byKey[r.date + '|' + r.time] = r; });
+    BY_DATE = {};
+    Object.keys(byKey).forEach(function (k) {
+      var r = byKey[k];
+      if (!BY_DATE[r.date]) BY_DATE[r.date] = [];
+      BY_DATE[r.date].push(r);
+    });
+    Object.keys(BY_DATE).forEach(function (d) {
+      BY_DATE[d].sort(function (a, b) { return a.time < b.time ? -1 : a.time > b.time ? 1 : 0; });
+    });
+    DATES = Object.keys(BY_DATE).sort();
+  }
+
+  // ---- بناء الجداول ----
+  function netHtml(v) {
+    var cls = v > 0 ? 'buy' : v < 0 ? 'sell' : 'dim';
+    return '<span class="tnum strong ' + cls + '">' + (v > 0 ? '+' : '') + fmtM(v) + '</span>';
+  }
+  function catTable(rows, caption) {
+    var h = '<div class="tblwrap"><table aria-label="' + caption + '"><thead><tr><th>الفئة</th><th>شراء (مليون ج.م)</th><th>بيع (مليون ج.م)</th><th>الصافي (مليون)</th></tr></thead><tbody>';
+    rows.forEach(function (r) {
+      h += '<tr><th scope="row">' + r.label + '</th><td class="tnum buy">' + fmtM(r.buy) + '</td><td class="tnum sell">' + fmtM(r.sell) + '</td><td>' + netHtml(r.buy - r.sell) + '</td></tr>';
+    });
+    return h + '</tbody></table></div>';
+  }
+  function snapRows(s) {
+    return CATS.map(function (c) { return { label: c.label, buy: s.values[c.buy] || 0, sell: s.values[c.sell] || 0 }; });
+  }
+  function shareTable(rows, amountHeader, shareHeader, cls) {
+    var h = '<div class="tblwrap"><table><thead><tr><th>الفئة</th><th>' + amountHeader + '</th><th>' + shareHeader + '</th></tr></thead><tbody>';
+    rows.forEach(function (r) {
+      h += '<tr><th scope="row">' + r.label + '</th><td class="tnum ' + cls + '">' + fmtM(r.amount) + '</td><td class="tnum strong">' + fmtPct(r.share) + '</td></tr>';
+    });
+    return h + '</tbody></table></div>';
+  }
+  function directionTable(rows) {
+    var h = '<div class="tblwrap"><table aria-label="اتجاه كل فئة بين الشراء والبيع"><thead><tr><th>الفئة</th><th>الاتجاه</th><th>نسبة الشراء من حركة الفئة</th><th>نسبة البيع من حركة الفئة</th></tr></thead><tbody>';
+    rows.forEach(function (r) {
+      var dir = r.net > 0
+        ? '<span class="strong buy">صافي شراء <span class="tnum">(+' + fmtM(r.net) + ')</span></span>'
+        : r.net < 0
+          ? '<span class="strong sell">صافي بيع <span class="tnum">(' + fmtM(r.net) + ')</span></span>'
+          : '<span class="strong dim">متوازن</span>';
+      h += '<tr><th scope="row">' + r.label + '</th><td>' + dir + '</td><td class="tnum buy">' + fmtPct(r.buyPct) + '</td><td class="tnum sell">' + fmtPct(r.sellPct) + '</td></tr>';
+    });
+    return h + '</tbody></table></div>';
+  }
+
+  // تحوّلات السياسة: انقلاب إشارة الصافي التراكمي بين آخر قراءتين فقط —
+  // الصفر يعني «لا اتجاه» ولا يُحسب انقلاباً أبداً.
+  function policyAnalysis(snaps) {
+    if (!snaps.length) return null;
+    var running = CATS.map(function () { return 0; });
+    var cumNets = snaps.map(function (s) {
+      CATS.forEach(function (c, idx) { running[idx] += (s.values[c.buy] || 0) - (s.values[c.sell] || 0); });
+      return running.slice();
+    });
+    var finalNets = cumNets[cumNets.length - 1];
+    if (finalNets.every(function (n) { return n === 0; })) return null;
+    var flips = [];
+    if (snaps.length >= 2) {
+      var prevNets = cumNets[cumNets.length - 2];
+      var latest = snaps[snaps.length - 1];
+      CATS.forEach(function (c, idx) {
+        var prevNet = prevNets[idx]; var currNet = finalNets[idx];
+        if (prevNet === 0 || currNet === 0) return;
+        if (Math.sign(prevNet) === Math.sign(currNet)) return;
+        flips.push({
+          label: c.label, fromBuy: prevNet > 0, toBuy: currNet > 0, currentNet: currNet,
+          periodNet: (latest.values[c.buy] || 0) - (latest.values[c.sell] || 0)
+        });
+      });
+    }
+    var buyers = CATS.map(function (c, idx) { return { label: c.label, net: finalNets[idx] }; }).filter(function (r) { return r.net > 0; });
+    var sellers = CATS.map(function (c, idx) { return { label: c.label, net: finalNets[idx] }; }).filter(function (r) { return r.net < 0; });
+    var strongestBuyer = buyers.length ? buyers.reduce(function (a, b) { return b.net > a.net ? b : a; }) : null;
+    var strongestSeller = sellers.length ? sellers.reduce(function (a, b) { return b.net < a.net ? b : a; }) : null;
+    return { flips: flips, strongestBuyer: strongestBuyer, strongestSeller: strongestSeller };
+  }
+
+  // الرسم البياني: صافي تراكمي لكل فئة على شبكة الجلسة كاملة (SVG داخلي)
+  function buildChart(snaps, isToday, nowMin) {
+    var startMin = toMin(SESSION_START);
+    var endMin = Math.max(startMin, toMin(SESSION_END));
+    var byTime = {};
+    snaps.forEach(function (s) { byTime[s.time] = s; });
+    var timeSet = {};
+    for (var t = startMin; t <= endMin; t += 15) timeSet[toHHMM(t)] = true;
+    snaps.forEach(function (s) { timeSet[s.time] = true; });
+    var times = Object.keys(timeSet).sort();
+    var xMax = endMin;
+    times.forEach(function (tm) { if (toMin(tm) > xMax) xMax = toMin(tm); });
+    var limit = isToday ? nowMin : Infinity;
+    var running = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    var pts = CATS.map(function () { return []; });
+    times.forEach(function (tm) {
+      var snap = byTime[tm];
+      if (snap) snap.values.forEach(function (v, i) { running[i] += v; });
+      var future = toMin(tm) > limit;
+      CATS.forEach(function (c, idx) {
+        pts[idx].push([toMin(tm), future ? null : (running[c.buy] - running[c.sell]) / 1000000]);
+      });
+    });
+    var min = 0, max = 0;
+    pts.forEach(function (line) {
+      line.forEach(function (p) { if (p[1] !== null) { if (p[1] < min) min = p[1]; if (p[1] > max) max = p[1]; } });
+    });
+    if (max - min < 1) { max += 0.5; min -= 0.5; }
+    var padY = (max - min) * 0.08; max += padY; min -= padY;
+    var W = 720, H = 300, L = 56, R = 10, T = 12, B = 28;
+    function X(mins) { return L + (mins - startMin) / Math.max(1, xMax - startMin) * (W - L - R); }
+    function Y(v) { return T + (max - v) / (max - min) * (H - T - B); }
+    var s = '<div dir="ltr"><svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="رسم بياني خطي للصافي التراكمي لست فئات مستثمرين خلال الجلسة بالمليون جنيه">';
+    for (var i = 0; i <= 4; i++) {
+      var v = min + (max - min) * i / 4; var y = Y(v);
+      s += '<line x1="' + L + '" y1="' + y.toFixed(1) + '" x2="' + (W - R) + '" y2="' + y.toFixed(1) + '" style="stroke:var(--border)" stroke-width="1"/>';
+      s += '<text x="' + (L - 6) + '" y="' + (y + 4).toFixed(1) + '" text-anchor="end" font-size="11" style="fill:var(--dim)">' + millionFmt.format(v) + '</text>';
+    }
+    s += '<line x1="' + L + '" y1="' + Y(0).toFixed(1) + '" x2="' + (W - R) + '" y2="' + Y(0).toFixed(1) + '" style="stroke:var(--dim)" stroke-width="1.5"/>';
+    for (var tt = startMin; tt <= endMin; tt += 60) {
+      s += '<text x="' + X(tt).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="11" style="fill:var(--dim)">' + fmtTime(toHHMM(tt)) + '</text>';
+    }
+    pts.forEach(function (line, idx) {
+      var d = ''; var pen = false;
+      line.forEach(function (p) {
+        if (p[1] === null) { pen = false; return; }
+        d += (pen ? ' L ' : ' M ') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1);
+        pen = true;
+      });
+      if (d) s += '<path d="' + d + '" fill="none" style="stroke:' + SERIES[idx] + '" stroke-width="2"/>';
+    });
+    s += '</svg></div>';
+    var lg = '<div class="legend">';
+    CATS.forEach(function (c, idx) {
+      var line = pts[idx]; var last = null;
+      for (var j = line.length - 1; j >= 0; j--) { if (line[j][1] !== null) { last = line[j][1]; break; } }
+      var net = last === null ? '' : ' <span class="tnum strong" style="color:var(--' + (last > 0 ? 'buy' : last < 0 ? 'sell' : 'dim') + ')">(' + (last > 0 ? '+' : '') + millionFmt.format(last) + ' مليون)</span>';
+      lg += '<span><i style="background:' + SERIES[idx] + '"></i>' + c.label + net + '</span>';
+    });
+    return s + lg;
+  }
+
+  // ---- العرض الكامل لليوم المختار ----
+  function render() {
+    var picker = document.getElementById('date-picker');
+    var cn = cairoNow();
+    var date = picker.value || cn.date;
+    var isToday = date === cn.date;
+    var snaps = BY_DATE[date] || [];
+    var h = '';
+
+    h += '<section><h2>كل ربع ساعة — ' + fmtDateArabic(date) + '</h2>';
+    if (!snaps.length) {
+      h += '<div class="card note dim">لا توجد بيانات مسجلة لهذا اليوم في الشيت بعد. تأكد أن كود Apps Script يعمل ويكتب صفوف هذا اليوم في الشيت، أو اختر يوماً آخر من الأيام الموجودة في الشيت.</div>';
+    } else {
+      snaps.forEach(function (s) {
+        h += '<article><div style="margin-top:1rem"><h3 class="tnum">' + fmtTime(s.time) + '</h3></div>' + catTable(snapRows(s), 'فئات المستثمرين الساعة ' + s.time) + '</article>';
+      });
+    }
+    h += '</section>';
+
+    var pa = policyAnalysis(snaps);
+    if (pa) {
+      h += '<section><h2>تحوّلات السياسة الآن</h2><div class="card">';
+      if (!pa.flips.length) {
+        h += '<p class="note" style="margin:0">لا توجد تحوّلات جديدة في السياسة حالياً</p>';
+      } else {
+        h += '<ul class="flips">';
+        pa.flips.forEach(function (f) {
+          h += '<li><span class="strong">' + f.label + '</span>: تحوّلت من '
+            + '<span class="strong ' + (f.fromBuy ? 'buy' : 'sell') + '">' + (f.fromBuy ? 'شراء' : 'بيع') + '</span> إلى '
+            + '<span class="strong ' + (f.toBuy ? 'buy' : 'sell') + '">' + (f.toBuy ? 'شراء' : 'بيع') + '</span>'
+            + ' | الصافي الحالي: ' + netHtml(f.currentNet) + ' مليون'
+            + ' | صافي الفترة: ' + netHtml(f.periodNet) + ' مليون</li>';
+        });
+        h += '</ul>';
+      }
+      if (pa.strongestBuyer || pa.strongestSeller) {
+        h += '<p class="note" style="margin:' + (pa.flips.length ? '.8rem 0 0' : '.4rem 0 0') + ';padding-top:' + (pa.flips.length ? '.8rem' : '0') + ';' + (pa.flips.length ? 'border-top:1px solid var(--border);' : '') + '"><span class="strong">أبرز ضغط حالي: </span>';
+        if (pa.strongestBuyer) h += 'أقوى شراء: ' + pa.strongestBuyer.label + ' <span class="tnum strong buy">(+' + fmtM(pa.strongestBuyer.net) + ' مليون)</span>';
+        if (pa.strongestBuyer && pa.strongestSeller) h += ' | ';
+        if (pa.strongestSeller) h += 'أقوى بيع: ' + pa.strongestSeller.label + ' <span class="tnum strong sell">(' + fmtM(pa.strongestSeller.net) + ' مليون)</span>';
+        h += '</p>';
+      }
+      h += '</div></section>';
+    }
+
+    var sums = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    snaps.forEach(function (s) { s.values.forEach(function (v, i) { sums[i] += v; }); });
+    var cumulative = CATS.map(function (c) { return { label: c.label, buy: sums[c.buy], sell: sums[c.sell] }; });
+    h += '<section><h2>التراكمي لليوم</h2><p class="small">'
+      + (snaps.length ? 'مجموع فترات اليوم المسجلة (' + numFmt.format(snaps.length) + ' فترة) — يبدأ من الصفر كل يوم جديد.' : 'لا فترات مسجلة بعد لهذا اليوم — التراكمي يبدأ من الصفر ويتجمع مع كل تحديث ربع ساعة.')
+      + '</p>' + catTable(cumulative, 'التراكمي لليوم')
+      + '<p class="small">كل الأرقام بالمليون جنيه — مثال: 4,666.56 تعني 4,666.56 مليون جنيه.</p></section>';
+
+    var hasVolume = cumulative.some(function (r) { return r.buy + r.sell > 0; });
+    var totalBuy = cumulative.reduce(function (a, r) { return a + r.buy; }, 0);
+    var totalSell = cumulative.reduce(function (a, r) { return a + r.sell; }, 0);
+    var buyRows = cumulative.map(function (r) { return { label: r.label, amount: r.buy, share: totalBuy > 0 ? r.buy / totalBuy * 100 : 0 }; }).sort(function (a, b) { return b.share - a.share; });
+    var sellRows = cumulative.map(function (r) { return { label: r.label, amount: r.sell, share: totalSell > 0 ? r.sell / totalSell * 100 : 0 }; }).sort(function (a, b) { return b.share - a.share; });
+    var dirRows = cumulative.map(function (r) {
+      var vol = r.buy + r.sell;
+      return { label: r.label, net: r.buy - r.sell, buyPct: vol > 0 ? r.buy / vol * 100 : 0, sellPct: vol > 0 ? r.sell / vol * 100 : 0 };
+    });
+
+    h += '<section><h2>نسب الشراء — كل فئة من إجمالي شراء الجلسة</h2><p class="small">من كل عمليات الشراء في الجلسة، كم نفّذت كل فئة؟ مرتبة من الأكبر إلى الأصغر، ومجموع النسب 100%.</p>'
+      + (hasVolume ? shareTable(buyRows, 'شراء (مليون ج.م)', 'النسبة من إجمالي الشراء', 'buy') : '<div class="card note dim">لا توجد أرقام بعد لحساب النسب — ستظهر فور تسجيل أول فترة.</div>')
+      + '</section>';
+    h += '<section><h2>نسب البيع — كل فئة من إجمالي بيع الجلسة</h2><p class="small">من كل عمليات البيع في الجلسة، كم نفّذت كل فئة؟ مرتبة من الأكبر إلى الأصغر، ومجموع النسب 100%.</p>'
+      + (hasVolume ? shareTable(sellRows, 'بيع (مليون ج.م)', 'النسبة من إجمالي البيع', 'sell') : '<div class="card note dim">لا توجد أرقام بعد لحساب النسب — ستظهر فور تسجيل أول فترة.</div>')
+      + '</section>';
+    h += '<section><h2>اتجاه كل فئة — بتشتري ولا بتبيع؟</h2><p class="small">لكل فئة على حدة: هل أنهت اليوم صافي شراء أم صافي بيع (بالمليون)، وكيف توزعت حركتها هي نفسها بين الشراء والبيع — فنسبة الشراء والبيع هنا من إجمالي حركة الفئة نفسها (شراؤها + بيعها = 100%).</p>'
+      + (hasVolume ? directionTable(dirRows) : '<div class="card note dim">لا توجد أرقام بعد لعرض الاتجاه — سيظهر فور تسجيل أول فترة.</div>')
+      + '</section>';
+
+    h += '<section><h2>مسار الجلسة — الصافي التراكمي لكل فئة</h2><p class="small">كل خط هو الصافي التراكمي (شراء − بيع) لفئة واحدة بالمليون جنيه بعد كل ربع ساعة، والمحور يمتد من بداية الجلسة لنهايتها حتى لو وصلت بيانات اليوم في صف واحد: الخط يطلع لفوق طول ما الفئة صافي شراء، وينزل تحت طول ما هي صافي بيع — فتشوف بسرعة الجلسة بدأت ببيع مين وشراء مين وإمتى اتقلبت.</p>';
+    if (!snaps.length) {
+      h += '<div class="card note dim">لا توجد فترات مسجلة بعد لهذا اليوم — سيظهر الرسم البياني مع أول تحديث.</div>';
+    } else {
+      h += '<div class="card">' + buildChart(snaps, isToday, cn.minutes) + '</div>';
+    }
+    h += '</section>';
+
+    document.getElementById('content').innerHTML = h;
+  }
+
+  // ---- الجلب من الشيت ----
+  function setStatus(t) { document.getElementById('status').textContent = t; }
+  function syncPicker() {
+    var picker = document.getElementById('date-picker');
+    var cn = cairoNow();
+    picker.max = cn.date;
+    if (!picker.value || !BY_DATE[picker.value]) {
+      picker.value = DATES.length ? DATES[DATES.length - 1] : cn.date;
+    }
+  }
+  function load() {
+    var url = '';
+    try { url = (localStorage.getItem(LS_URL) || '').trim(); } catch (e) {}
+    if (!url) { setStatus('الصق رابط الشيت في الخانة بالأعلى ثم اضغط «حفظ الرابط».'); render(); return; }
+    setStatus('جارٍ جلب البيانات من الشيت…');
+    fetch(toCsvUrl(url), { redirect: 'follow' }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.text();
+    }).then(function (text) {
+      if (text.replace(/^\s+/, '').charAt(0) === '<') throw new Error('not-csv');
+      var rows = parseSheetRows(parseCsv(text));
+      setRows(rows);
+      try { localStorage.setItem(LS_CACHE, JSON.stringify(rows)); } catch (e) {}
+      syncPicker();
+      render();
+      var when = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { hour: 'numeric', minute: '2-digit', timeZone: 'Africa/Cairo' }).format(new Date());
+      setStatus(rows.length
+        ? 'آخر جلب ناجح: ' + when + ' بتوقيت القاهرة — ' + numFmt.format(rows.length) + ' صف بيانات في الشيت.'
+        : 'تمت قراءة الشيت بنجاح، لكنه لا يحتوي على أي صفوف بيانات بعد (صف العناوين فقط) — تأكد أن كود Apps Script يعمل ويكتب الصفوف.');
+    }).catch(function () {
+      setStatus('تعذر قراءة الشيت — تأكد أن الرابط صحيح وأن الشيت منشور على الويب بصيغة CSV أو مُشارك للقراءة لأي شخص لديه الرابط.');
+      render();
+    });
+  }
+
+  // ---- التهيئة ----
+  var cn0 = cairoNow();
+  document.getElementById('today-line').textContent = 'اليوم بتوقيت القاهرة: ' + fmtDateArabic(cn0.date) + ' — الجلسة من ' + fmtTime(SESSION_START) + ' إلى ' + fmtTime(SESSION_END) + '.';
+  var urlInput = document.getElementById('sheet-url');
+  try { urlInput.value = localStorage.getItem(LS_URL) || ''; } catch (e) {}
+  document.getElementById('save-url').addEventListener('click', function () {
+    try { localStorage.setItem(LS_URL, urlInput.value.trim()); } catch (e) {}
+    load();
+  });
+  document.getElementById('refresh').addEventListener('click', load);
+  document.getElementById('date-picker').addEventListener('change', render);
+  if (OS_APP_ID.length < 30) {
+    osSetStatus('لم يتم وضع OneSignal App ID في هذه النسخة بعد — افتح صفحة «كيفية الإعداد» في التطبيق الأصلي بعد حفظ الـ App ID في إعداداته، وانسخ كود index.html من جديد وستجده مدمجاً.');
+  }
+  try {
+    var cached = JSON.parse(localStorage.getItem(LS_CACHE) || '[]');
+    if (Array.isArray(cached) && cached.length) { setRows(cached); syncPicker(); }
+  } catch (e) {}
+  render();
+  load();
+  setInterval(load, 15 * 60 * 1000);
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  }
+})();
+</script>
+</body>
+</html>
