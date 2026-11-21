@@ -1,0 +1,16 @@
+{
+  "name": "متابع فئات المستثمرين في البورصة المصرية",
+  "short_name": "فئات المستثمرين",
+  "description": "متابعة نسب فئات المستثمرين في البورصة المصرية كل 15 دقيقة",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "dir": "rtl",
+  "lang": "ar",
+  "background_color": "#f7f6f1",
+  "theme_color": "#0b6e4f",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
